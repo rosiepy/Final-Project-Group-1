@@ -1,0 +1,309 @@
+CREATE TABLE temp_courses (
+    course_id INT PRIMARY KEY,
+    course_title VARCHAR(255),
+    url VARCHAR(255),
+    is_paid BOOLEAN,
+    price DECIMAL(10, 2),
+    num_subscribers INT,
+    num_reviews INT,
+    num_lectures INT,
+    level varchar(100),
+    content_duration TIME,
+    published_timestamp TIMESTAMP,
+    subject VARCHAR(100)
+);
+
+ALTER TABLE temp_courses
+MODIFY COLUMN content_duration DECIMAL(10, 2);
+ALTER TABLE courses
+MODIFY COLUMN content_duration DECIMAL(10, 2);
+
+CREATE TABLE courses (
+    course_id INT PRIMARY KEY,
+    course_title VARCHAR(255) ,
+    url VARCHAR(255),
+    is_paid BOOLEAN,
+    num_subscribers INT,
+    num_reviews INT,
+    num_lectures INT,
+    level_id INT,
+    content_duration decimal(10,2),
+    published_timestamp TIMESTAMP,
+    subject_id INT,
+    price_id INT, 
+    FOREIGN KEY (level_id) REFERENCES levels(level_id),
+    FOREIGN KEY (subject_id) REFERENCES subjects(subject_id),
+    FOREIGN KEY (price_id) REFERENCES prices(price_id) 
+);
+CREATE TABLE temp_courses (
+    course_id INT PRIMARY KEY,
+    course_title VARCHAR(255) NOT NULL,
+    url VARCHAR(255) NOT NULL,
+    is_paid BOOLEAN NOT NULL,
+    price DECIMAL(10, 2),
+    num_subscribers INT,
+    num_reviews INT,
+    num_lectures INT,
+    level varchar(100),
+    content_duration decimal(10,2),
+    published_timestamp TIMESTAMP,
+    subject VARCHAR(100)
+);
+
+ DELETE FROM temp_courses;
+
+INSERT INTO subjects (subject)
+SELECT DISTINCT subject FROM courses;
+INSERT INTO levels (level)
+SELECT DISTINCT subject FROM courses;
+INSERT INTO prices (price)
+SELECT price FROM courses;
+
+-- Assume you have a temporary table or subquery with the required data to insert
+-- For demonstration purposes, let's assume the temporary table is named "temp_courses"
+
+-- Insert data into the "courses" table with proper foreign key references
+INSERT INTO courses (course_title, url, is_paid, price_id, num_subscribers, num_reviews, num_lectures, level_id, content_duration, published_timestamp, subject_id)
+SELECT
+    tc.course_title,
+    tc.url,
+    tc.is_paid,
+    (SELECT price_id FROM prices WHERE price = tc.price) as price_id,
+    tc.num_subscribers,
+    tc.num_reviews,
+    tc.num_lectures,
+    (SELECT level_id FROM levels WHERE level = tc.level) as level_id,
+    tc.content_duration,
+    tc.published_timestamp,
+    (SELECT subject_id FROM subjects WHERE subject = tc.subject) as subject_id
+FROM
+    temp_courses tc;
+ALTER TABLE courses
+DROP PRIMARY KEY;
+
+ALTER TABLE courses
+MODIFY COLUMN course_id INT AUTO_INCREMENT PRIMARY KEY;
+
+ALTER TABLE udemy_courses
+MODIFY COLUMN course_id INT AUTO_INCREMENT,
+ADD PRIMARY KEY (course_id);
+INSERT INTO udemy_courses (course_title, url, is_paid, price_id, num_subscribers, num_reviews, num_lectures, level_id, content_duration, published_timestamp, subject_id)
+SELECT
+    tc.course_title,
+    tc.url,
+    tc.is_paid,
+    p.price_id,
+    tc.num_subscribers,
+    tc.num_reviews,
+    tc.num_lectures,
+    l.level_id,
+    tc.content_duration,
+    tc.published_timestamp,
+    s.subject_id
+FROM
+    temp_courses tc
+LEFT JOIN prices p ON tc.price = p.price
+LEFT JOIN levels l ON tc.level = l.level
+LEFT JOIN subjects s ON tc.subject = s.subject;
+
+ALTER TABLE courses
+DROP FOREIGN KEY courses_ibfk_3;
+
+CREATE TABLE subjects (
+    subject_id INT AUTO_INCREMENT PRIMARY KEY,
+    subject VARCHAR(50)
+);
+
+ SELECT course_id, COUNT(*) FROM temp_courses GROUP BY course_id HAVING COUNT(*) > 1;
+Empty set (0.01 sec)
+TRUNCATE TABLE udemy_courses;
+
+CREATE TABLE courses (
+    course_id INT PRIMARY KEY,  -- assuming course_id is INT
+    course_title VARCHAR(255), 
+    url VARCHAR(255),
+    is_paid BOOLEAN,
+    num_subscribers INT,
+    num_reviews INT,
+    num_lectures INT,
+    content_duration DECIMAL(10,2),
+    published_timestamp TIMESTAMP,
+    level_id INT,
+    subject_id INT,
+    price_id INT
+);
+
+
+INSERT INTO courses (
+    course_id, 
+    course_title, 
+    url, 
+    is_paid, 
+    num_subscribers, 
+    num_reviews, 
+    num_lectures, 
+    content_duration, 
+    published_timestamp, 
+    level_id, 
+    subject_id, 
+    price_id
+)
+SELECT 
+    t.course_title, 
+    t.url, 
+    t.is_paid, 
+    t.num_subscribers, 
+    t.num_reviews, 
+    t.num_lectures, 
+    t.content_duration, 
+    t.published_timestamp, 
+    l.level_id, 
+    s.subject_id, 
+    p.price_id
+FROM 
+    temp_courses AS t
+JOIN 
+    levels AS l ON t.level = l.level
+JOIN 
+    subjects AS s ON t.subject = s.subject
+JOIN 
+    prices AS p ON t.course_id = p.course_id;
+
+INSERT INTO courses (
+    course_id, 
+    course_title, 
+    url, 
+    is_paid, 
+    num_subscribers, 
+    num_reviews, 
+    num_lectures, 
+    content_duration, 
+    published_timestamp, 
+    level_id, 
+    subject_id, 
+    price_id
+)
+SELECT 
+    t.course_id, 
+    t.course_title, 
+    t.url, 
+    t.is_paid, 
+    t.num_subscribers, 
+    t.num_reviews, 
+    t.num_lectures, 
+    t.content_duration, 
+    t.published_timestamp, 
+    l.level_id, 
+    s.subject_id, 
+    p.price_id
+FROM 
+    temp_courses AS t
+JOIN 
+    levels AS l ON t.level = l.level
+JOIN 
+    subjects AS s ON t.subject = s.subject
+JOIN 
+    prices AS p ON t.price = p.price
+ON DUPLICATE KEY UPDATE
+    course_title = VALUES(course_title), 
+    url = VALUES(url),
+    is_paid = VALUES(is_paid),
+    num_subscribers = VALUES(num_subscribers),
+    num_reviews = VALUES(num_reviews),
+    num_lectures = VALUES(num_lectures),
+    content_duration = VALUES(content_duration),
+    published_timestamp = VALUES(published_timestamp),
+    level_id = VALUES(level_id),
+    subject_id = VALUES(subject_id),
+    price_id = VALUES(price_id);
+
+INSERT INTO courses (course_title, url, is_paid, price_id, num_subscribers, num_reviews, num_lectures, level_id, content_duration, published_timestamp, subject_id)
+SELECT
+    tc.course_title,
+    tc.url,
+    tc.is_paid,
+    p.price_id,
+    tc.num_subscribers,
+    tc.num_reviews,
+    tc.num_lectures,
+    l.level_id,
+    tc.content_duration,
+    tc.published_timestamp,
+    s.subject_id
+FROM
+    temp_courses tc
+LEFT JOIN prices p ON tc.price = p.price where p.course_id = tc.course_id
+LEFT JOIN levels l ON (select distinct tc.level from tc.level where tc.level = l.level)
+LEFT JOIN subjects s ON(select distinct tc.subject from tc.subject where tc.subject = s.subject) ;
+
+INSERT INTO courses (course_id, course_title, url, is_paid, price_id, num_subscribers, num_reviews, num_lectures, level_id, content_duration, published_timestamp, subject_id)
+SELECT
+    tc.course_id,
+    tc.course_title,
+    tc.url,
+    tc.is_paid,
+    (SELECT price_id FROM prices p WHERE p.price = tc.price) as price_id,
+    tc.num_subscribers,
+    tc.num_reviews,
+    tc.num_lectures,
+    (SELECT level_id FROM levels l WHERE l.level = tc.level LIMIT 1) as level_id,
+    tc.content_duration,
+    tc.published_timestamp,
+    (SELECT subject_id FROM subjects s WHERE s.subject = tc.subject LIMIT 1) as subject_id
+FROM
+    temp_courses tc
+LEFT JOIN prices p ON tc.price = p.price
+LEFT JOIN levels l ON 1=1
+LEFT JOIN subjects s ON 1=1;
+DELETE FROM prices
+WHERE price IS NULL;
+CREATE TABLE prices (
+    price_id INT PRIMARY KEY auto_increment,
+    course_id int,
+    price DECIMAL(10, 2)
+);
+UPDATE temp_courses
+SET level_id = (
+  SELECT level_id
+  FROM levels
+  WHERE levels.level = temp_courses.level
+);
+UPDATE temp_courses
+SET subject_id = (
+  SELECT subject_id
+  FROM subjects
+  WHERE subjects.subject = temp_courses.subject
+);
+UPDATE temp_courses
+SET price_id = (
+  SELECT price_id
+  FROM prices
+  WHERE prices.course_id = temp_courses.course_id
+);
+
+CREATE TABLE courses AS
+SELECT * FROM temp_courses;
+ALTER TABLE courses
+ADD PRIMARY KEY (course_id);
+
+ALTER TABLE courses
+ADD CONSTRAINT fk_level_id
+FOREIGN KEY (level_id)
+REFERENCES levels (level_id),
+ADD CONSTRAINT fk_subject_id
+FOREIGN KEY (subject_id)
+REFERENCES subjects (subject_id),
+ADD CONSTRAINT fk_price_id
+FOREIGN KEY (price_id)
+REFERENCES prices (price_id);
+
+mysqldump -u root -p root report > \Users\Kyaw\Documents\projectbackup.sql
+mysqldump -u root -p report --tables levels prices subjects courses > C:\Users\Kyaw\Documents\project\backup.sql
+C:\Program Files\MySQL\MySQL Server 8.0\bin>mysqldump -u root -p  report > C:/Users/Kyaw/Documents/projectbackup.sql
+
+
+
+
+
+
+

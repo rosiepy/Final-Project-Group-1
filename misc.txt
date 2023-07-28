@@ -1,0 +1,297 @@
+py -m pip install virtualenv
+py -m virtualenv --version
+py -m virtualenv kv
+kv\Scripts\activate
+pip install django
+django-admin startproject udemy
+pip install mysqlclient
+python.exe -m pip install --upgrade pip
+Get-ChildItem -Path . -Recurse -Filter "*.py" | Where-Object { $_.FullName -like "*\migrations\*" -and $_.Name -ne "__init__.py" } | Remove-Item -Force
+python manage.py makemigrations courses
+python manage.py migrate courses
+
+
+CREATE TABLE level(
+  level_id INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+  level VARCHAR(255)
+);
+
+ALTER TABLE courses 
+ADD COLUMN price_id INT, 
+ADD CONSTRAINT fk_price 
+FOREIGN KEY (price_id) 
+REFERENCES price(price_id);
+ALTER TABLE courses 
+ADD COLUMN level_id INT, 
+ADD CONSTRAINT fk_level 
+FOREIGN KEY (level_id) 
+REFERENCES level(level_id);
+
+mysql> insert into Subjects(subject) ( select distinct c.subject from  courses c, subject s  where c.course_id = s.course_id);
+INSERT INTO temp_courses (subject_id)
+SELECT s.subject_id
+FROM subjects s
+WHERE s.subject IN (SELECT DISTINCT subject FROM courses);
+
+UPDATE courses
+UPDATE courses
+JOIN prices ON courses.course_id = price.course_id
+SET courses.price_id = price.price_id;
+
+SET subject_id = (
+  SELECT subject_id
+  FROM subjects
+  WHERE subjects.subject = courses.subject
+);
+ALTER TABLE courses
+DROP COLUMN level_id;
+
+CREATE TABLE level (
+    level_id INT AUTO_INCREMENT PRIMARY KEY,
+    course_id INT,
+    level int
+);
+
+UPDATE courses
+    -> JOIN level ON courses.level = levels.level
+    -> SET courses.level_id = level.level_id;
+Query OK, 3672 rows affected (0.24 sec)
+
+UPDATE courses
+SET subject_id = 1
+WHERE subject_id IS NULL
+UPDATE courses
+UPDATE courses
+SET level_id = (
+  SELECT level_id
+  FROM levels
+  WHERE levels.course_id = courses.course_id);
+
+ UPDATE courses
+    -> SET price_id = (
+    ->   SELECT price_id
+    ->   FROM price
+    ->   WHERE price.price = courses.price
+    ->   LIMIT 1
+    -> );
+
+UPDATE courses
+SET price_id = CASE 
+    WHEN course_id = 8324 THEN 1
+    WHEN course_id = 8325 THEN 2
+    ELSE price_id
+    END;
+
+ALTER TABLE courses DROP FOREIGN KEY fk_price;
+ALTER TABLE levels DROP FOREIGN KEY fk_price;
+ ALTER TABLE courses DROP COLUMN price_id;
+SHOW CREATE TABLE courses;
+UPDATE courses c
+INNER JOIN prices p
+ON c.course_id = p.course_ida
+SET c.price_id = p. price_id
+
+ALTER TABLE courses
+ADD FOREIGN KEY (level_id) REFERENCES level(level_id);
+ALTER TABLE courses
+ADD FOREIGN KEY (price_id) REFERENCES price(price_id);
+
+from django.conf.urls import url,include
+from django.contrib import admin
+from basic_app import views
+
+urlpatterns = [
+    url(r'^$',views.index,name='index'),
+    url(r'^special/',views.special,name='special'),
+    url(r'^admin/', admin.site.urls),
+    url(r'^basic_app/',include('basic_app.urls')),
+    url(r'^logout/$', views.user_logout, name='logout'),
+]
+# SET THE NAMESPACE!
+app_name = 'basic_app'
+
+# Be careful setting the name to just /login use userlogin instead!
+urlpatterns=[
+    url(r'^register/$',views.register,name='register'),
+    url(r'^user_login/$',views.user_login,name='user_login'),
+]
+
+
+from django.db import models
+from django.contrib.auth.models import User
+
+# Create your models here.
+class UserProfileInfo(models.Model):
+
+    # Create relationship (don't inherit from User!)
+    user = models.OneToOneField(User)
+
+    # Add any additional attributes you want
+    portfolio_site = models.URLField(blank=True)
+    # pip install pillow to use this!
+    # Optional: pip install pillow --global-option=”build_ext” --global-option=”--disable-jpeg”
+    profile_pic = models.ImageField(upload_to='profile_pics',blank=True)
+
+    def __str__(self):
+        # Built-in attribute of django.contrib.auth.models.User !
+        return self.user.username
+from django import forms
+from django.contrib.auth.models import User
+from basic_app.models import UserProfileInfo
+
+class UserForm(forms.ModelForm):
+    password = forms.CharField(widget=forms.PasswordInput())
+
+    class Meta():
+        model = User
+        fields = ('username','email','password')
+body_block
+
+class UserProfileInfoForm(forms.ModelForm):
+    class Meta():
+        model = UserProfileInfo
+        fields = ('portfolio_site','profile_pic')
+from django.shortcuts import render
+from basic_app.forms import UserForm,UserProfileInfoForm
+
+
+
+# Extra Imports for the Login and Logout Capabilities
+from django.contrib.auth import authenticate, login, logout
+from django.http import HttpResponseRedirect, HttpResponse
+from django.core.urlresolvers import reverse
+from django.contrib.auth.decorators import login_required
+
+# Create your views here.
+def index(request):
+    return render(request,'basic_app/index.html')
+
+@login_required
+def special(request):
+    # Remember to also set login url in settings.py!
+    # LOGIN_URL = '/basic_app/user_login/'
+    return HttpResponse("You are logged in. Nice!")
+
+@login_required
+def user_logout(request):
+    # Log out the user.
+    logout(request)
+    # Return to homepage.
+    return HttpResponseRedirect(reverse('index'))
+
+def register(request):
+
+    registered = False
+
+    if request.method == 'POST':
+
+        # Get info from "both" forms
+        # It appears as one form to the user on the .html page
+        user_form = UserForm(data=request.POST)
+        profile_form = UserProfileInfoForm(data=request.POST)
+
+        # Check to see both forms are valid
+        if user_form.is_valid() and profile_form.is_valid():
+
+            # Save User Form to Database
+            user = user_form.save()
+
+            # Hash the password
+            user.set_password(user.password)
+
+            # Update with Hashed password
+            user.save()
+
+            # Now we deal with the extra info!
+
+            # Can't commit yet because we still need to manipulate
+            profile = profile_form.save(commit=False)
+
+            # Set One to One relationship between
+            # UserForm and UserProfileInfoForm
+            profile.user = user
+
+            # Check if they provided a profile picture
+            if 'profile_pic' in request.FILES:
+                print('found it')
+                # If yes, then grab it from the POST form reply
+                profile.profile_pic = request.FILES['profile_pic']
+
+            # Now save model
+            profile.save()
+
+            # Registration Successful!
+            registered = True
+
+        else:
+            # One of the forms was invalid if this else gets called.
+            print(user_form.errors,profile_form.errors)
+
+    else:
+        # Was not an HTTP post so we just render the forms as blank.
+        user_form = UserForm()
+        profile_form = UserProfileInfoForm()
+
+    # This is the render and context dictionary to feed
+    # back to the registration.html file page.
+    return render(request,'basic_app/registration.html',
+                          {'user_form':user_form,
+                           'profile_form':profile_form,
+                           'registered':registered})
+
+def user_login(request):
+
+    if request.method == 'POST':
+        # First get the username and password supplied
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+
+        # Django's built-in authentication function:
+        user = authenticate(username=username, password=password)
+
+        # If we have a user
+        if user:
+            #Check it the account is active
+            if user.is_active:
+                # Log the user in.
+                login(request,user)
+                # Send the user back to some page.
+                # In this case their homepage.
+                return HttpResponseRedirect(reverse('index'))
+            else:
+                # If account is not active:
+                return HttpResponse("Your account is not active.")
+        else:
+            print("Someone tried to login and failed.")
+            print("They used username: {} and password: {}".format(username,password))
+            return HttpResponse("Invalid login details supplied.")
+
+    else:
+        #Nothing has been provided for username or password.
+        return render(request, 'basic_app/login.html', {})
+from django.apps import AppConfig
+
+
+class BasicAppConfig(AppConfig):
+    name = 'basic_app'
+
+INSERT INTO courses (
+    course_id,
+    course_title, 
+    url, 
+    is_paid, 
+    num_subscribers, 
+    num_reviews, 
+    num_lectures, 
+    content_duration, 
+    published_timestamp
+   
+) (select course_id,
+   course_title, 
+    url, 
+    is_paid, 
+    num_subscribers, 
+    num_reviews, 
+    num_lectures, 
+    content_duration, 
+    published_timestamp from temp_courses);
